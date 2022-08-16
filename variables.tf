@@ -363,3 +363,21 @@ variable "custom_endpoint_certificate_arn" {
   description = "ACM certificate ARN for custom endpoint."
   default     = ""
 }
+
+variable "auto_tune_options_enabled" {
+  description = "Do you want to enable auto tune or not"
+  type = bool
+  default = false
+}
+
+variable "auto_tune_options_schedule" {
+  description = "Map describing the auto-tune schedule"
+  type = object({
+    start_at = string
+    duration = string
+  })
+  default = {
+    start_at = "01:00"
+    duration = "2"
+  }
+}
