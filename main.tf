@@ -103,6 +103,18 @@ data "aws_iam_policy_document" "assume_role" {
   }
 }
 
+resource "time_static" "es" {
+  triggers = {
+    domain = module.this.id
+    security = var.advanced_security_options_enabled
+    start_at = var.auto_tune_options_schedule.start_at
+  }
+}
+
+locals {
+  auto_tune_time = formatdate("YYYY-MM-DD'T'hh:mm:ssZ", format("%sT%s:00Z", formatdate("YYYY-MM-DD", timeadd(time_static.es.rfc3339, "24h")), join(":", split(",", var.auto_tune_options_schedule.start_at))))
+}
+
 resource "aws_elasticsearch_domain" "default" {
   count                 = module.this.enabled ? 1 : 0
   domain_name           = module.this.id
@@ -183,6 +195,21 @@ resource "aws_elasticsearch_domain" "default" {
       user_pool_id     = var.cognito_user_pool_id
       identity_pool_id = var.cognito_identity_pool_id
       role_arn         = var.cognito_iam_role_arn
+    }
+  }
+
+  dynamic "auto_tune_options" {
+    for_each = var.auto_tune_options_enabled ? [1] : []
+    content {
+      desired_state = var.auto_tune_options_enabled ? "ENABLED" : "DISABLED"
+      maintenance_schedule {
+        start_at = local.auto_tune_time
+        cron_expression_for_recurrence = format("cron(%s ? * 7 *)", formatdate("m h", local.auto_tune_time))
+        duration {
+          value = var.auto_tune_options_schedule.duration
+          unit = "HOURS"
+        }
+      }
     }
   }
 
