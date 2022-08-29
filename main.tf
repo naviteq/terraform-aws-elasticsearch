@@ -200,6 +200,7 @@ resource "aws_elasticsearch_domain" "default" {
 
   auto_tune_options {
     desired_state = var.auto_tune_options_enabled ? "ENABLED" : "DISABLED"
+    rollback_on_disable = "NO_ROLLBACK"
     maintenance_schedule {
       start_at = local.auto_tune_time
       cron_expression_for_recurrence = format("cron(%s ? * 7 *)", formatdate("m h", local.auto_tune_time))
