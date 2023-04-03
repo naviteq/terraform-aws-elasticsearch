@@ -104,6 +104,7 @@ data "aws_iam_policy_document" "assume_role" {
 }
 
 resource "time_static" "es" {
+  count = var.auto_tune_options_enabled ? 1 : 0
   triggers = {
     domain = module.this.id
     security = var.advanced_security_options_enabled
@@ -112,7 +113,7 @@ resource "time_static" "es" {
 }
 
 locals {
-  auto_tune_time = formatdate("YYYY-MM-DD'T'hh:mm:ssZ", format("%sT%s:00Z", formatdate("YYYY-MM-DD", timeadd(time_static.es.rfc3339, "24h")), join(":", split(",", var.auto_tune_options_schedule.start_at))))
+  auto_tune_time = var.auto_tune_options_enabled ? formatdate("YYYY-MM-DD'T'hh:mm:ssZ", format("%sT%s:00Z", formatdate("YYYY-MM-DD", timeadd(time_static.es[0].rfc3339, "24h")), join(":", split(",", var.auto_tune_options_schedule.start_at)))) : ""
 }
 
 resource "aws_elasticsearch_domain" "default" {
@@ -198,15 +199,18 @@ resource "aws_elasticsearch_domain" "default" {
     }
   }
 
-  auto_tune_options {
-    desired_state = var.auto_tune_options_enabled ? "ENABLED" : "DISABLED"
-    rollback_on_disable = "NO_ROLLBACK"
-    maintenance_schedule {
-      start_at = local.auto_tune_time
-      cron_expression_for_recurrence = format("cron(%s ? * 7 *)", formatdate("m h", local.auto_tune_time))
-      duration {
-        value = var.auto_tune_options_schedule.duration
-        unit = "HOURS"
+  dynamic "auto_tune_options" {
+    for_each = var.auto_tune_options_enabled ? [1] : []
+    content {
+      desired_state = "ENABLED"
+      rollback_on_disable = "NO_ROLLBACK"
+      maintenance_schedule {
+        start_at = local.auto_tune_time
+        cron_expression_for_recurrence = format("cron(%s ? * 7 *)", formatdate("m h", local.auto_tune_time))
+        duration {
+          value = var.auto_tune_options_schedule.duration
+          unit = "HOURS"
+        }
       }
     }
   }
